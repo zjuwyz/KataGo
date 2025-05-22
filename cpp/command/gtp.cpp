@@ -1415,6 +1415,10 @@ struct GTPEngine {
       tmpParams.humanSLPlaExploreProbWeightless = 0.0;
       tmpParams.humanSLOppExploreProbWeightful = 0.0;
       tmpParams.humanSLOppExploreProbWeightless = 0.0;
+      tmpParams.humanSLBlackExploreProbWeightful = 0.0;
+      tmpParams.humanSLBlackExploreProbWeightless = 0.0;
+      tmpParams.humanSLWhiteExploreProbWeightful = 0.0;
+      tmpParams.humanSLWhiteExploreProbWeightless = 0.0;
       tmpParams.antiMirror = false;
       tmpParams.avoidRepeatedPatternUtility = 0;
       bot->setParams(tmpParams);
@@ -1477,6 +1481,10 @@ struct GTPEngine {
       tmpParams.humanSLPlaExploreProbWeightless = 0.0;
       tmpParams.humanSLOppExploreProbWeightful = 0.0;
       tmpParams.humanSLOppExploreProbWeightless = 0.0;
+      tmpParams.humanSLBlackExploreProbWeightful = 0.0;
+      tmpParams.humanSLBlackExploreProbWeightless = 0.0;
+      tmpParams.humanSLWhiteExploreProbWeightful = 0.0;
+      tmpParams.humanSLWhiteExploreProbWeightless = 0.0;
       tmpParams.antiMirror = false;
       tmpParams.avoidRepeatedPatternUtility = 0;
       bot->setParams(tmpParams);
