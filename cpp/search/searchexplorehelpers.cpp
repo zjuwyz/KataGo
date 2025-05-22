@@ -372,18 +372,41 @@ void Search::selectBestChildToDescend(
     if(humanOutput != NULL) {
       double weightlessProb;
       double weightfulProb;
-      if(isRoot) {
-        weightlessProb = searchParams.humanSLRootExploreProbWeightless;
-        weightfulProb = searchParams.humanSLRootExploreProbWeightful;
+
+      if(searchParams.humanSLWhiteExploreProbWeightful > 0 ||
+        searchParams.humanSLWhiteExploreProbWeightless > 0 ||
+        searchParams.humanSLBlackExploreProbWeightful > 0 ||
+        searchParams.humanSLBlackExploreProbWeightless > 0
+      )
+      {
+        if (thread.pla == P_BLACK)
+        {
+          weightlessProb = searchParams.humanSLBlackExploreProbWeightless;
+          weightfulProb = searchParams.humanSLBlackExploreProbWeightful;
+        }
+        else
+        {
+          assert(thread.pla == P_WHITE);
+          weightlessProb = searchParams.humanSLWhiteExploreProbWeightless;
+          weightfulProb = searchParams.humanSLWhiteExploreProbWeightful;
+        }
       }
-      else if(thread.pla == rootPla) {
-        weightlessProb = searchParams.humanSLPlaExploreProbWeightless;
-        weightfulProb = searchParams.humanSLPlaExploreProbWeightful;
+      else
+      {
+        if(isRoot) {
+          weightlessProb = searchParams.humanSLRootExploreProbWeightless;
+          weightfulProb = searchParams.humanSLRootExploreProbWeightful;
+        }
+        else if(thread.pla == rootPla) {
+          weightlessProb = searchParams.humanSLPlaExploreProbWeightless;
+          weightfulProb = searchParams.humanSLPlaExploreProbWeightful;
+        }
+        else {
+          weightlessProb = searchParams.humanSLOppExploreProbWeightless;
+          weightfulProb = searchParams.humanSLOppExploreProbWeightful;
+        }
       }
-      else {
-        weightlessProb = searchParams.humanSLOppExploreProbWeightless;
-        weightfulProb = searchParams.humanSLOppExploreProbWeightful;
-      }
+
 
       double totalHumanProb = weightlessProb + weightfulProb;
       if(totalHumanProb > 0.0) {

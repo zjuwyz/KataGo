@@ -112,6 +112,10 @@ SearchParams::SearchParams()
    humanSLPlaExploreProbWeightful(0.0),
    humanSLOppExploreProbWeightless(0.0),
    humanSLOppExploreProbWeightful(0.0),
+   humanSLWhiteExploreProbWeightless(0.0),
+   humanSLWhiteExploreProbWeightful(0.0),
+   humanSLBlackExploreProbWeightful(0.0),
+   humanSLBlackExploreProbWeightless(0.0),
    humanSLChosenMoveProp(0.0),
    humanSLChosenMoveIgnorePass(false),
    humanSLChosenMovePiklLambda(1000000000.0)
@@ -122,24 +126,21 @@ SearchParams::~SearchParams()
 
 bool SearchParams::operator==(const SearchParams& other) const {
   return (
-    winLossUtilityFactor == other.winLossUtilityFactor &&
-    staticScoreUtilityFactor == other.staticScoreUtilityFactor &&
+    winLossUtilityFactor == other.winLossUtilityFactor && staticScoreUtilityFactor == other.staticScoreUtilityFactor &&
     dynamicScoreUtilityFactor == other.dynamicScoreUtilityFactor &&
     dynamicScoreCenterZeroWeight == other.dynamicScoreCenterZeroWeight &&
     dynamicScoreCenterScale == other.dynamicScoreCenterScale &&
     noResultUtilityForWhite == other.noResultUtilityForWhite &&
     drawEquivalentWinsForWhite == other.drawEquivalentWinsForWhite &&
 
-    cpuctExploration == other.cpuctExploration &&
-    cpuctExplorationLog == other.cpuctExplorationLog &&
+    cpuctExploration == other.cpuctExploration && cpuctExplorationLog == other.cpuctExplorationLog &&
     cpuctExplorationBase == other.cpuctExplorationBase &&
 
     cpuctUtilityStdevPrior == other.cpuctUtilityStdevPrior &&
     cpuctUtilityStdevPriorWeight == other.cpuctUtilityStdevPriorWeight &&
     cpuctUtilityStdevScale == other.cpuctUtilityStdevScale &&
 
-    fpuReductionMax == other.fpuReductionMax &&
-    fpuLossProp == other.fpuLossProp &&
+    fpuReductionMax == other.fpuReductionMax && fpuLossProp == other.fpuLossProp &&
 
     fpuParentWeightByVisitedPolicy == other.fpuParentWeightByVisitedPolicy &&
     fpuParentWeightByVisitedPolicyPow == other.fpuParentWeightByVisitedPolicyPow &&
@@ -147,18 +148,13 @@ bool SearchParams::operator==(const SearchParams& other) const {
 
     policyOptimism == other.policyOptimism &&
 
-    valueWeightExponent == other.valueWeightExponent &&
-    useNoisePruning == other.useNoisePruning &&
-    noisePruneUtilityScale == other.noisePruneUtilityScale &&
-    noisePruningCap == other.noisePruningCap &&
+    valueWeightExponent == other.valueWeightExponent && useNoisePruning == other.useNoisePruning &&
+    noisePruneUtilityScale == other.noisePruneUtilityScale && noisePruningCap == other.noisePruningCap &&
 
-    useUncertainty == other.useUncertainty &&
-    uncertaintyCoeff == other.uncertaintyCoeff &&
-    uncertaintyExponent == other.uncertaintyExponent &&
-    uncertaintyMaxWeight == other.uncertaintyMaxWeight &&
+    useUncertainty == other.useUncertainty && uncertaintyCoeff == other.uncertaintyCoeff &&
+    uncertaintyExponent == other.uncertaintyExponent && uncertaintyMaxWeight == other.uncertaintyMaxWeight &&
 
-    useGraphSearch == other.useGraphSearch &&
-    graphSearchRepBound == other.graphSearchRepBound &&
+    useGraphSearch == other.useGraphSearch && graphSearchRepBound == other.graphSearchRepBound &&
     graphSearchCatchUpLeakProb == other.graphSearchCatchUpLeakProb &&
 
     rootNoiseEnabled == other.rootNoiseEnabled &&
@@ -167,10 +163,8 @@ bool SearchParams::operator==(const SearchParams& other) const {
 
     rootPolicyTemperature == other.rootPolicyTemperature &&
     rootPolicyTemperatureEarly == other.rootPolicyTemperatureEarly &&
-    rootFpuReductionMax == other.rootFpuReductionMax &&
-    rootFpuLossProp == other.rootFpuLossProp &&
-    rootNumSymmetriesToSample == other.rootNumSymmetriesToSample &&
-    rootSymmetryPruning == other.rootSymmetryPruning &&
+    rootFpuReductionMax == other.rootFpuReductionMax && rootFpuLossProp == other.rootFpuLossProp &&
+    rootNumSymmetriesToSample == other.rootNumSymmetriesToSample && rootSymmetryPruning == other.rootSymmetryPruning &&
     rootDesiredPerChildVisitsCoeff == other.rootDesiredPerChildVisitsCoeff &&
 
     rootPolicyOptimism == other.rootPolicyOptimism &&
@@ -180,33 +174,24 @@ bool SearchParams::operator==(const SearchParams& other) const {
     chosenMoveTemperatureHalflife == other.chosenMoveTemperatureHalflife &&
 
     chosenMoveTemperatureOnlyBelowProb == other.chosenMoveTemperatureOnlyBelowProb &&
-    chosenMoveSubtract == other.chosenMoveSubtract &&
-    chosenMovePrune == other.chosenMovePrune &&
+    chosenMoveSubtract == other.chosenMoveSubtract && chosenMovePrune == other.chosenMovePrune &&
 
-    useLcbForSelection == other.useLcbForSelection &&
-    lcbStdevs == other.lcbStdevs &&
-    minVisitPropForLCB == other.minVisitPropForLCB &&
-    useNonBuggyLcb == other.useNonBuggyLcb &&
+    useLcbForSelection == other.useLcbForSelection && lcbStdevs == other.lcbStdevs &&
+    minVisitPropForLCB == other.minVisitPropForLCB && useNonBuggyLcb == other.useNonBuggyLcb &&
 
-    rootEndingBonusPoints == other.rootEndingBonusPoints &&
-    rootPruneUselessMoves == other.rootPruneUselessMoves &&
-    conservativePass == other.conservativePass &&
-    fillDameBeforePass == other.fillDameBeforePass &&
-    avoidMYTDaggerHackPla == other.avoidMYTDaggerHackPla &&
-    wideRootNoise == other.wideRootNoise &&
-    enablePassingHacks == other.enablePassingHacks &&
-    enableMorePassingHacks == other.enableMorePassingHacks &&
+    rootEndingBonusPoints == other.rootEndingBonusPoints && rootPruneUselessMoves == other.rootPruneUselessMoves &&
+    conservativePass == other.conservativePass && fillDameBeforePass == other.fillDameBeforePass &&
+    avoidMYTDaggerHackPla == other.avoidMYTDaggerHackPla && wideRootNoise == other.wideRootNoise &&
+    enablePassingHacks == other.enablePassingHacks && enableMorePassingHacks == other.enableMorePassingHacks &&
 
     playoutDoublingAdvantage == other.playoutDoublingAdvantage &&
     playoutDoublingAdvantagePla == other.playoutDoublingAdvantagePla &&
 
     avoidRepeatedPatternUtility == other.avoidRepeatedPatternUtility &&
 
-    nnPolicyTemperature == other.nnPolicyTemperature &&
-    antiMirror == other.antiMirror &&
+    nnPolicyTemperature == other.nnPolicyTemperature && antiMirror == other.antiMirror &&
 
-    ignorePreRootHistory == other.ignorePreRootHistory &&
-    ignoreAllHistory == other.ignoreAllHistory &&
+    ignorePreRootHistory == other.ignorePreRootHistory && ignoreAllHistory == other.ignoreAllHistory &&
 
     subtreeValueBiasFactor == other.subtreeValueBiasFactor &&
     subtreeValueBiasTableNumShards == other.subtreeValueBiasTableNumShards &&
@@ -216,14 +201,10 @@ bool SearchParams::operator==(const SearchParams& other) const {
     nodeTableShardsPowerOfTwo == other.nodeTableShardsPowerOfTwo &&
     numVirtualLossesPerThread == other.numVirtualLossesPerThread &&
 
-    numThreads == other.numThreads &&
-    minPlayoutsPerThread == other.minPlayoutsPerThread &&
-    maxVisits == other.maxVisits &&
-    maxPlayouts == other.maxPlayouts &&
-    maxTime == other.maxTime &&
+    numThreads == other.numThreads && minPlayoutsPerThread == other.minPlayoutsPerThread &&
+    maxVisits == other.maxVisits && maxPlayouts == other.maxPlayouts && maxTime == other.maxTime &&
 
-    maxVisitsPondering == other.maxVisitsPondering &&
-    maxPlayoutsPondering == other.maxPlayoutsPondering &&
+    maxVisitsPondering == other.maxVisitsPondering && maxPlayoutsPondering == other.maxPlayoutsPondering &&
     maxTimePondering == other.maxTimePondering &&
 
     lagBuffer == other.lagBuffer &&
@@ -232,18 +213,15 @@ bool SearchParams::operator==(const SearchParams& other) const {
     searchFactorAfterTwoPass == other.searchFactorAfterTwoPass &&
 
     treeReuseCarryOverTimeFactor == other.treeReuseCarryOverTimeFactor &&
-    overallocateTimeFactor == other.overallocateTimeFactor &&
-    midgameTimeFactor == other.midgameTimeFactor &&
-    midgameTurnPeakTime == other.midgameTurnPeakTime &&
-    endgameTurnTimeDecay == other.endgameTurnTimeDecay &&
+    overallocateTimeFactor == other.overallocateTimeFactor && midgameTimeFactor == other.midgameTimeFactor &&
+    midgameTurnPeakTime == other.midgameTurnPeakTime && endgameTurnTimeDecay == other.endgameTurnTimeDecay &&
     obviousMovesTimeFactor == other.obviousMovesTimeFactor &&
     obviousMovesPolicyEntropyTolerance == other.obviousMovesPolicyEntropyTolerance &&
     obviousMovesPolicySurpriseTolerance == other.obviousMovesPolicySurpriseTolerance &&
 
     futileVisitsThreshold == other.futileVisitsThreshold &&
 
-    humanSLProfile == other.humanSLProfile &&
-    humanSLCpuctExploration == other.humanSLCpuctExploration &&
+    humanSLProfile == other.humanSLProfile && humanSLCpuctExploration == other.humanSLCpuctExploration &&
     humanSLCpuctPermanent == other.humanSLCpuctPermanent &&
     humanSLRootExploreProbWeightless == other.humanSLRootExploreProbWeightless &&
     humanSLRootExploreProbWeightful == other.humanSLRootExploreProbWeightful &&
@@ -251,11 +229,14 @@ bool SearchParams::operator==(const SearchParams& other) const {
     humanSLPlaExploreProbWeightful == other.humanSLPlaExploreProbWeightful &&
     humanSLOppExploreProbWeightless == other.humanSLOppExploreProbWeightless &&
     humanSLOppExploreProbWeightful == other.humanSLOppExploreProbWeightful &&
+    humanSLWhiteExploreProbWeightless == other.humanSLWhiteExploreProbWeightless &&
+    humanSLWhiteExploreProbWeightful == other.humanSLWhiteExploreProbWeightful &&
+    humanSLBlackExploreProbWeightless == other.humanSLBlackExploreProbWeightless &&
+    humanSLBlackExploreProbWeightful == other.humanSLBlackExploreProbWeightful &&
 
     humanSLChosenMoveProp == other.humanSLChosenMoveProp &&
     humanSLChosenMoveIgnorePass == other.humanSLChosenMoveIgnorePass &&
-    humanSLChosenMovePiklLambda == other.humanSLChosenMovePiklLambda
-  );
+    humanSLChosenMovePiklLambda == other.humanSLChosenMovePiklLambda);
 }
 
 bool SearchParams::operator!=(const SearchParams& other) const {
@@ -498,7 +479,10 @@ json SearchParams::changeableParametersToJson() const {
   ret["humanSLPlaExploreProbWeightful"] = humanSLPlaExploreProbWeightful;
   ret["humanSLOppExploreProbWeightless"] = humanSLOppExploreProbWeightless;
   ret["humanSLOppExploreProbWeightful"] = humanSLOppExploreProbWeightful;
-
+  ret["humanSLBlackExploreProbWeightful"] = humanSLBlackExploreProbWeightful;
+  ret["humanSLBlackExploreProbWeightless"] = humanSLBlackExploreProbWeightless;
+  ret["humanSLWhiteExploreProbWeightful"] = humanSLWhiteExploreProbWeightful;
+  ret["humanSLWhiteExploreProbWeightless"] = humanSLWhiteExploreProbWeightless;
   ret["humanSLChosenMoveProp"] = humanSLChosenMoveProp;
   ret["humanSLChosenMoveIgnorePass"] = humanSLChosenMoveIgnorePass;
   ret["humanSLChosenMovePiklLambda"] = humanSLChosenMovePiklLambda;
@@ -650,6 +634,10 @@ void SearchParams::printParams(std::ostream& out) const {
   PRINTPARAM(humanSLPlaExploreProbWeightful);
   PRINTPARAM(humanSLOppExploreProbWeightless);
   PRINTPARAM(humanSLOppExploreProbWeightful);
+  PRINTPARAM(humanSLBlackExploreProbWeightless);
+  PRINTPARAM(humanSLBlackExploreProbWeightful);
+  PRINTPARAM(humanSLWhiteExploreProbWeightless);
+  PRINTPARAM(humanSLWhiteExploreProbWeightful);
   PRINTPARAM(humanSLChosenMoveProp);
   PRINTPARAM(humanSLChosenMoveIgnorePass);
   PRINTPARAM(humanSLChosenMovePiklLambda);

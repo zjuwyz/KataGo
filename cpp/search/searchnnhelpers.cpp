@@ -42,7 +42,11 @@ bool Search::needsHumanOutputInTree() const {
     searchParams.humanSLPlaExploreProbWeightless > 0 ||
     searchParams.humanSLPlaExploreProbWeightful > 0 ||
     searchParams.humanSLOppExploreProbWeightless > 0 ||
-    searchParams.humanSLOppExploreProbWeightful > 0
+    searchParams.humanSLOppExploreProbWeightful > 0 ||
+    searchParams.humanSLBlackExploreProbWeightful > 0 ||
+    searchParams.humanSLBlackExploreProbWeightless > 0 ||
+    searchParams.humanSLWhiteExploreProbWeightful > 0 ||
+    searchParams.humanSLWhiteExploreProbWeightless > 0
   );
 }
 

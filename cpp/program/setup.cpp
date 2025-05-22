@@ -800,6 +800,33 @@ vector<SearchParams> Setup::loadParams(
     else if(cfg.contains("humanSLOppExploreProbWeightful"+idxStr)) params.humanSLOppExploreProbWeightful = cfg.getDouble("humanSLOppExploreProbWeightful"+idxStr, 0.0, 1.0);
     else if(cfg.contains("humanSLOppExploreProbWeightful"))   params.humanSLOppExploreProbWeightful = cfg.getDouble("humanSLOppExploreProbWeightful",        0.0, 1.0);
     else                                                      params.humanSLOppExploreProbWeightful = 0.0;
+
+    // new humanSLBlack or humanSLWhite
+    if(!hasHumanModel && cfg.contains("humanSLWhiteExploreProbWeightful"+idxStr)) throwHumanParsingError("humanSLWhiteExploreProbWeightful"+idxStr);
+    else if(!hasHumanModel && cfg.contains("humanSLWhiteExploreProbWeightful")) throwHumanParsingError("humanSLWhiteExploreProbWeightful");
+    else if(cfg.contains("humanSLWhiteExploreProbWeightful"+idxStr)) params.humanSLWhiteExploreProbWeightful = cfg.getDouble("humanSLWhiteExploreProbWeightful"+idxStr, 0.0, 1.0);
+    else if(cfg.contains("humanSLWhiteExploreProbWeightful"))   params.humanSLWhiteExploreProbWeightful = cfg.getDouble("humanSLWhiteExploreProbWeightful",        0.0, 1.0);
+    else                                                      params.humanSLWhiteExploreProbWeightful = 0.0;
+
+    if(!hasHumanModel && cfg.contains("humanSLWhiteExploreProbWeightless"+idxStr)) throwHumanParsingError("humanSLWhiteExploreProbWeightless"+idxStr);
+    else if(!hasHumanModel && cfg.contains("humanSLWhiteExploreProbWeightless")) throwHumanParsingError("humanSLWhiteExploreProbWeightless");
+    else if(cfg.contains("humanSLWhiteExploreProbWeightless"+idxStr)) params.humanSLWhiteExploreProbWeightless = cfg.getDouble("humanSLWhiteExploreProbWeightless"+idxStr, 0.0, 1.0);
+    else if(cfg.contains("humanSLWhiteExploreProbWeightless"))   params.humanSLWhiteExploreProbWeightless = cfg.getDouble("humanSLWhiteExploreProbWeightless",        0.0, 1.0);
+    else                                                      params.humanSLWhiteExploreProbWeightless = 0.0;
+
+    if(!hasHumanModel && cfg.contains("humanSLBlackExploreProbWeightful"+idxStr)) throwHumanParsingError("humanSLBlackExploreProbWeightful"+idxStr);
+    else if(!hasHumanModel && cfg.contains("humanSLBlackExploreProbWeightful")) throwHumanParsingError("humanSLBlackExploreProbWeightful");
+    else if(cfg.contains("humanSLBlackExploreProbWeightful"+idxStr)) params.humanSLBlackExploreProbWeightful = cfg.getDouble("humanSLBlackExploreProbWeightful"+idxStr, 0.0, 1.0);
+    else if(cfg.contains("humanSLBlackExploreProbWeightful"))   params.humanSLBlackExploreProbWeightful = cfg.getDouble("humanSLBlackExploreProbWeightful",        0.0, 1.0);
+    else                                                      params.humanSLBlackExploreProbWeightful = 0.0;
+
+    if(!hasHumanModel && cfg.contains("humanSLBlackExploreProbWeightless"+idxStr)) throwHumanParsingError("humanSLBlackExploreProbWeightless"+idxStr);
+    else if(!hasHumanModel && cfg.contains("humanSLBlackExploreProbWeightless")) throwHumanParsingError("humanSLBlackExploreProbWeightless");
+    else if(cfg.contains("humanSLBlackExploreProbWeightless"+idxStr)) params.humanSLBlackExploreProbWeightless = cfg.getDouble("humanSLBlackExploreProbWeightless"+idxStr, 0.0, 1.0);
+    else if(cfg.contains("humanSLBlackExploreProbWeightless"))   params.humanSLBlackExploreProbWeightless = cfg.getDouble("humanSLBlackExploreProbWeightless",        0.0, 1.0);
+    else                                                      params.humanSLBlackExploreProbWeightless = 0.0;
+    // ---
+
     if(!hasHumanModel && cfg.contains("humanSLChosenMoveProp"+idxStr)) throwHumanParsingError("humanSLChosenMoveProp"+idxStr);
     else if(!hasHumanModel && cfg.contains("humanSLChosenMoveProp")) throwHumanParsingError("humanSLChosenMoveProp");
     else if(cfg.contains("humanSLChosenMoveProp"+idxStr)) params.humanSLChosenMoveProp = cfg.getDouble("humanSLChosenMoveProp"+idxStr, 0.0, 1.0);

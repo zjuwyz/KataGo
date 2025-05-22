@@ -638,7 +638,10 @@ void Search::beginSearch(bool pondering) {
       clearSearch();
     //If we have a human SL net and the parameters are different for the different sides, clear the search.
     if(humanEvaluator != NULL) {
-      if((searchParams.humanSLPlaExploreProbWeightless != searchParams.humanSLOppExploreProbWeightless) ||
+      
+      if(searchParams.humanSLBlackExploreProbWeightful == 0 && searchParams.humanSLBlackExploreProbWeightless == 0 &&
+         searchParams.humanSLBlackExploreProbWeightful == 0 && searchParams.humanSLWhiteExploreProbWeightless == 0 &&
+        (searchParams.humanSLPlaExploreProbWeightless != searchParams.humanSLOppExploreProbWeightless) ||
          (searchParams.humanSLPlaExploreProbWeightful != searchParams.humanSLOppExploreProbWeightful) ||
          (searchParams.humanSLPlaExploreProbWeightless != searchParams.humanSLRootExploreProbWeightless) ||
          (searchParams.humanSLPlaExploreProbWeightful != searchParams.humanSLRootExploreProbWeightful))
