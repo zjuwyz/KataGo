@@ -1089,7 +1089,10 @@ struct ComputeHandle {
   unique_ptr<IRuntime> runtime;
   unique_ptr<ICudaEngine> engine;
   unique_ptr<IExecutionContext> exec;
-
+#ifdef TENSORRT_CUDA_GRAPH
+  vector<cudaGraph_t> cudaGraphs;
+  vector<cudaGraphExec_t> cudaGraphExecs;
+#endif
   ComputeHandle(
     Logger* logger,
     const cudaDeviceProp* prop,
@@ -1493,6 +1496,34 @@ ComputeHandle* NeuralNet::createComputeHandle(
       ": Model name: " + loadedModel->modelDesc.name);
   }
 
+#ifdef TENSORRT_CUDA_GRAPH
+  // Create cudaGraph for each possible batchsize
+  handle->cudaGraphs.resize(maxBatchSize);
+  handle->cudaGraphExecs.resize(maxBatchSize);
+  for(int i = 1; i < maxBatchSize; i++) {
+
+    auto& graph = handle->cudaGraphs[i];
+    auto& instance = handle->cudaGraphExecs[i];
+
+    auto maskInputDims = handle->getBufferDynamicShape("InputMask", i);
+    auto spatialInputDims = handle->getBufferDynamicShape("InputSpatial", i);
+    auto globalInputDims = handle->getBufferDynamicShape("InputGlobal", i);
+
+    handle->exec->setInputShape("InputMask", maskInputDims);
+    handle->exec->setInputShape("InputSpatial", spatialInputDims);
+    handle->exec->setInputShape("InputGlobal", globalInputDims);
+    if(loadedModel->modelDesc.numInputMetaChannels > 0) {
+      auto metaInputDims = handle->getBufferDynamicShape("InputMeta", i);
+      handle->exec->setInputShape("InputMeta", metaInputDims);
+    }
+
+    handle->exec->enqueueV3(cudaStreamPerThread);
+    CUDA_ERR("beginCapture", cudaStreamBeginCapture(cudaStreamPerThread, cudaStreamCaptureModeThreadLocal))
+    handle->exec->enqueueV3(cudaStreamPerThread);
+    CUDA_ERR("endCapture", cudaStreamEndCapture(cudaStreamPerThread, &graph))
+    CUDA_ERR("graphInitiate", cudaGraphInstantiate(&instance, graph, 0))
+  }
+#endif
   return handle;
 }
 
@@ -1656,7 +1687,6 @@ void NeuralNet::getOutput(
     const float* rowSpatial = inputBufs[nIdx]->rowSpatialBuf.data();
     const float* rowMeta = inputBufs[nIdx]->rowMetaBuf.data();
     const bool hasRowMeta = inputBufs[nIdx]->hasRowMeta;
-    copy(rowGlobal, rowGlobal + numGlobalFeatures, rowGlobalInput);
     std::copy(rowGlobal,rowGlobal+numGlobalFeatures,rowGlobalInput);
     if(numMetaFeatures > 0) {
       testAssert(rowMeta != NULL);
@@ -1728,6 +1758,9 @@ void NeuralNet::getOutput(
         cudaMemcpyHostToDevice));
   }
 
+#ifdef TENSORRT_CUDA_GRAPH
+  cudaGraphLaunch(gpuHandle->cudaGraphExecs[batchSize], cudaStreamPerThread);
+#else
   auto maskInputDims = gpuHandle->getBufferDynamicShape("InputMask", batchSize);
   auto spatialInputDims = gpuHandle->getBufferDynamicShape("InputSpatial", batchSize);
   auto globalInputDims = gpuHandle->getBufferDynamicShape("InputGlobal", batchSize);
@@ -1742,7 +1775,7 @@ void NeuralNet::getOutput(
   }
 
   gpuHandle->exec->enqueueV3(cudaStreamPerThread);
-
+#endif
   CUDA_ERR(
     "getOutput",
     cudaMemcpy(
