@@ -161,10 +161,10 @@ struct SearchParams {
   double humanSLPlaExploreProbWeightful;
   double humanSLOppExploreProbWeightless;
   double humanSLOppExploreProbWeightful;
-  double humanSLWhiteExploreProbWeightful;
   double humanSLWhiteExploreProbWeightless;
-  double humanSLBlackExploreProbWeightful;
+  double humanSLWhiteExploreProbWeightful;
   double humanSLBlackExploreProbWeightless;
+  double humanSLBlackExploreProbWeightful;
 
   //These three are PRIOR to the normal chosenMoveTemperature.
   double humanSLChosenMoveProp; //Proportion of final move selection probability using human SL policy
