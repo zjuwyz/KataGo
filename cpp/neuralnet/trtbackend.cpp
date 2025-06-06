@@ -1495,35 +1495,6 @@ ComputeHandle* NeuralNet::createComputeHandle(
       "TensorRT backend thread " + Global::intToString(serverThreadIdx) +
       ": Model name: " + loadedModel->modelDesc.name);
   }
-
-#ifdef TENSORRT_CUDA_GRAPH
-  // Create cudaGraph for each possible batchsize
-  handle->cudaGraphs.resize(maxBatchSize + 1);
-  handle->cudaGraphExecs.resize(maxBatchSize + 1);
-  for(int i = 1; i <= maxBatchSize; i++) {
-
-    auto& graph = handle->cudaGraphs[i];
-    auto& instance = handle->cudaGraphExecs[i];
-
-    auto maskInputDims = handle->getBufferDynamicShape("InputMask", i);
-    auto spatialInputDims = handle->getBufferDynamicShape("InputSpatial", i);
-    auto globalInputDims = handle->getBufferDynamicShape("InputGlobal", i);
-
-    handle->exec->setInputShape("InputMask", maskInputDims);
-    handle->exec->setInputShape("InputSpatial", spatialInputDims);
-    handle->exec->setInputShape("InputGlobal", globalInputDims);
-    if(loadedModel->modelDesc.numInputMetaChannels > 0) {
-      auto metaInputDims = handle->getBufferDynamicShape("InputMeta", i);
-      handle->exec->setInputShape("InputMeta", metaInputDims);
-    }
-
-    handle->exec->enqueueV3(cudaStreamPerThread);
-    CUDA_ERR("beginCapture", cudaStreamBeginCapture(cudaStreamPerThread, cudaStreamCaptureModeThreadLocal))
-    handle->exec->enqueueV3(cudaStreamPerThread);
-    CUDA_ERR("endCapture", cudaStreamEndCapture(cudaStreamPerThread, &graph))
-    CUDA_ERR("graphInitiate", cudaGraphInstantiate(&instance, graph, 0))
-  }
-#endif
   return handle;
 }
 
@@ -1727,56 +1698,66 @@ void NeuralNet::getOutput(
   const int numPolicyChannels = inputBuffers->singlePolicyPassResultElts;
   assert(inputBuffers->singlePolicyResultElts == numPolicyChannels * nnXLen * nnYLen);
 
-  // Transfers from host memory to device memory are asynchronous with respect to the host
-  CUDA_ERR(
-    "getOutput",
-    cudaMemcpyAsync(
-      gpuHandle->getBuffer("InputMask"),
-      inputBuffers->maskInputs,
-      inputBuffers->singleMaskBytes * batchSize,
-      cudaMemcpyHostToDevice));
-  CUDA_ERR(
-    "getOutput",
-    cudaMemcpyAsync(
-      gpuHandle->getBuffer("InputSpatial"),
-      inputBuffers->spatialInputs,
-      inputBuffers->singleInputBytes * batchSize,
-      cudaMemcpyHostToDevice));
-  CUDA_ERR(
-    "getOutput",
-    cudaMemcpyAsync(
-      gpuHandle->getBuffer("InputGlobal"),
-      inputBuffers->globalInputs,
-      inputBuffers->singleInputGlobalBytes * batchSize,
-      cudaMemcpyHostToDevice));
-  if(numMetaFeatures > 0) {
+#ifdef TENSORRT_CUDA_GRAPH
+  if (gpuHandle->cudaGraphExecs.empty()) {
+    gpuHandle->cudaGraphs.resize(inputBuffers->maxBatchSize + 1);
+    gpuHandle->cudaGraphExecs.resize(inputBuffers->maxBatchSize + 1);
+  }
+  auto& graph = gpuHandle->cudaGraphs[batchSize];
+  auto& instance = gpuHandle->cudaGraphExecs[batchSize];
+  if (instance == nullptr) { // First evaluation with current batchsize. Initialize cuda graph  
+#endif
+
+    auto maskInputDims = gpuHandle->getBufferDynamicShape("InputMask", batchSize);
+    auto spatialInputDims = gpuHandle->getBufferDynamicShape("InputSpatial", batchSize);
+    auto globalInputDims = gpuHandle->getBufferDynamicShape("InputGlobal", batchSize);
+
+    gpuHandle->exec->setInputShape("InputMask", maskInputDims);
+    gpuHandle->exec->setInputShape("InputSpatial", spatialInputDims);
+    gpuHandle->exec->setInputShape("InputGlobal", globalInputDims);
+
+    if(numMetaFeatures > 0) {
+      auto metaInputDims = gpuHandle->getBufferDynamicShape("InputMeta", batchSize);
+      gpuHandle->exec->setInputShape("InputMeta", metaInputDims);
+    }
+#ifdef TENSORRT_CUDA_GRAPH
+    gpuHandle->exec->enqueueV3(cudaStreamPerThread); // Warm up
+    cudaStreamBeginCapture(cudaStreamPerThread, cudaStreamCaptureModeThreadLocal);  // In case other server thread is also capturing.
+#endif
+      // Transfers from host memory to device memory are asynchronous with respect to the host
     CUDA_ERR(
       "getOutput",
       cudaMemcpyAsync(
-        gpuHandle->getBuffer("InputMeta"),
-        inputBuffers->metaInputs,
-        inputBuffers->singleInputMetaBytes * batchSize,
+        gpuHandle->getBuffer("InputMask"),
+        inputBuffers->maskInputs,
+        inputBuffers->singleMaskBytes * batchSize,
         cudaMemcpyHostToDevice));
-  }
-
-#ifdef TENSORRT_CUDA_GRAPH
-  cudaGraphLaunch(gpuHandle->cudaGraphExecs[batchSize], cudaStreamPerThread);
-#else
-  auto maskInputDims = gpuHandle->getBufferDynamicShape("InputMask", batchSize);
-  auto spatialInputDims = gpuHandle->getBufferDynamicShape("InputSpatial", batchSize);
-  auto globalInputDims = gpuHandle->getBufferDynamicShape("InputGlobal", batchSize);
-
-  gpuHandle->exec->setInputShape("InputMask", maskInputDims);
-  gpuHandle->exec->setInputShape("InputSpatial", spatialInputDims);
-  gpuHandle->exec->setInputShape("InputGlobal", globalInputDims);
-
-  if(numMetaFeatures > 0) {
-    auto metaInputDims = gpuHandle->getBufferDynamicShape("InputMeta", batchSize);
-    gpuHandle->exec->setInputShape("InputMeta", metaInputDims);
-  }
+    CUDA_ERR(
+      "getOutput",
+      cudaMemcpyAsync(
+        gpuHandle->getBuffer("InputSpatial"),
+        inputBuffers->spatialInputs,
+        inputBuffers->singleInputBytes * batchSize,
+        cudaMemcpyHostToDevice));
+    CUDA_ERR(
+      "getOutput",
+      cudaMemcpyAsync(
+        gpuHandle->getBuffer("InputGlobal"),
+        inputBuffers->globalInputs,
+        inputBuffers->singleInputGlobalBytes * batchSize,
+        cudaMemcpyHostToDevice));
+    if(numMetaFeatures > 0) {
+      CUDA_ERR(
+        "getOutput",
+        cudaMemcpyAsync(
+          gpuHandle->getBuffer("InputMeta"),
+          inputBuffers->metaInputs,
+          inputBuffers->singleInputMetaBytes * batchSize,
+          cudaMemcpyHostToDevice));
+    }
 
   gpuHandle->exec->enqueueV3(cudaStreamPerThread);
-#endif
+
   CUDA_ERR(
     "getOutput",
     cudaMemcpyAsync(
@@ -1812,7 +1793,13 @@ void NeuralNet::getOutput(
       gpuHandle->getBuffer("OutputOwnership"),
       inputBuffers->singleOwnershipResultBytes * batchSize,
       cudaMemcpyDeviceToHost));
-  cudaStreamSynchronize(cudaStreamPerThread);    
+#ifdef TENSORRT_CUDA_GRAPH
+    cudaStreamEndCapture(cudaStreamPerThread, &graph);
+    cudaGraphInstantiate(&instance, graph, 0);  
+  } // instance == nullptr
+  cudaGraphLaunch(instance, cudaStreamPerThread);
+#endif
+  cudaStreamSynchronize(cudaStreamPerThread);
   gpuHandle->printDebugOutput(batchSize);
   gpuHandle->trtErrorRecorder.clear();
 
