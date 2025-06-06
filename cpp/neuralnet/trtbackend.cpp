@@ -1241,7 +1241,7 @@ struct ComputeHandle {
       }
 
       if(plan.size() <= 0) {
-        logger->write("Creating new plan cache");
+        logger->write("Creating new plan cache " + planCacheFile);
         auto planBuffer = unique_ptr<IHostMemory>(builder->buildSerializedNetwork(*model->network, *config));
         if(!planBuffer) {
           throw StringError("TensorRT backend: failed to create plan");
@@ -1498,9 +1498,9 @@ ComputeHandle* NeuralNet::createComputeHandle(
 
 #ifdef TENSORRT_CUDA_GRAPH
   // Create cudaGraph for each possible batchsize
-  handle->cudaGraphs.resize(maxBatchSize);
-  handle->cudaGraphExecs.resize(maxBatchSize);
-  for(int i = 1; i < maxBatchSize; i++) {
+  handle->cudaGraphs.resize(maxBatchSize + 1);
+  handle->cudaGraphExecs.resize(maxBatchSize + 1);
+  for(int i = 1; i <= maxBatchSize; i++) {
 
     auto& graph = handle->cudaGraphs[i];
     auto& instance = handle->cudaGraphExecs[i];
@@ -1546,6 +1546,7 @@ void NeuralNet::printDevices() {
 }
 
 struct InputBuffers {
+  
   int maxBatchSize;
 
   size_t singleMaskElts;
@@ -1577,15 +1578,15 @@ struct InputBuffers {
   size_t scoreValueResultBufferBytes;
   size_t ownershipResultBufferBytes;
 
-  unique_ptr<float[]> maskInputs;           // Host pointer
-  unique_ptr<float[]> spatialInputs;        // Host pointer
-  unique_ptr<float[]> globalInputs;  // Host pointer
-  unique_ptr<float[]> metaInputs;  // Host pointer
-  unique_ptr<float[]> policyPassResults;    // Host pointer
-  unique_ptr<float[]> policyResults;        // Host pointer
-  unique_ptr<float[]> valueResults;         // Host pointer
-  unique_ptr<float[]> scoreValueResults;    // Host pointer
-  unique_ptr<float[]> ownershipResults;     // Host pointer
+  float* maskInputs;           // Host pointer
+  float* spatialInputs;        // Host pointer
+  float* globalInputs;  // Host pointer
+  float* metaInputs;  // Host pointer
+  float* policyPassResults;    // Host pointer
+  float* policyResults;        // Host pointer
+  float* valueResults;         // Host pointer
+  float* scoreValueResults;    // Host pointer
+  float* ownershipResults;     // Host pointer
 
   InputBuffers(const LoadedModel* loadedModel, int maxBatchSz, int nnXLen, int nnYLen) {
     const ModelDesc& m = loadedModel->modelDesc;
@@ -1633,16 +1634,16 @@ struct InputBuffers {
     scoreValueResultBufferBytes = maxBatchSize * singleScoreValueResultBytes;
     ownershipResultBufferBytes = maxBatchSize * singleOwnershipResultBytes;
 
-    maskInputs = make_unique<float[]>(maxBatchSize * singleMaskElts);
-    spatialInputs = make_unique<float[]>(maxBatchSize * singleInputElts);
-    globalInputs = make_unique<float[]>(maxBatchSize * singleInputGlobalElts);
-    metaInputs = make_unique<float[]>(maxBatchSize * singleInputMetaElts);
-    policyPassResults = make_unique<float[]>(maxBatchSize * singlePolicyPassResultElts);
-    policyResults = make_unique<float[]>(maxBatchSize * singlePolicyResultElts);
-    valueResults = make_unique<float[]>(maxBatchSize * singleValueResultElts);
-    scoreValueResults = make_unique<float[]>(maxBatchSize * singleScoreValueResultElts);
-    ownershipResults = make_unique<float[]>(maxBatchSize * singleOwnershipResultElts);
-  }
+    cudaMallocHost((void**)&maskInputs, maxBatchSize * singleMaskElts * sizeof(float));
+    cudaMallocHost((void**)&spatialInputs, maxBatchSize * singleInputElts * sizeof(float));
+    cudaMallocHost((void**)&globalInputs, maxBatchSize * singleInputGlobalElts * sizeof(float));
+    cudaMallocHost((void**)&metaInputs, maxBatchSize * singleInputMetaElts * sizeof(float));
+    cudaMallocHost((void**)&policyPassResults, maxBatchSize * singlePolicyPassResultElts * sizeof(float));
+    cudaMallocHost((void**)&policyResults, maxBatchSize * singlePolicyResultElts * sizeof(float));
+    cudaMallocHost((void**)&valueResults, maxBatchSize * singleValueResultElts * sizeof(float));
+    cudaMallocHost((void**)&scoreValueResults, maxBatchSize * singleScoreValueResultElts * sizeof(float));
+    cudaMallocHost((void**)&ownershipResults, maxBatchSize * singleOwnershipResultElts * sizeof(float));
+    }
 
   InputBuffers() = delete;
   InputBuffers(const InputBuffers&) = delete;
@@ -1731,21 +1732,21 @@ void NeuralNet::getOutput(
     "getOutput",
     cudaMemcpyAsync(
       gpuHandle->getBuffer("InputMask"),
-      inputBuffers->maskInputs.get(),
+      inputBuffers->maskInputs,
       inputBuffers->singleMaskBytes * batchSize,
       cudaMemcpyHostToDevice));
   CUDA_ERR(
     "getOutput",
     cudaMemcpyAsync(
       gpuHandle->getBuffer("InputSpatial"),
-      inputBuffers->spatialInputs.get(),
+      inputBuffers->spatialInputs,
       inputBuffers->singleInputBytes * batchSize,
       cudaMemcpyHostToDevice));
   CUDA_ERR(
     "getOutput",
     cudaMemcpyAsync(
       gpuHandle->getBuffer("InputGlobal"),
-      inputBuffers->globalInputs.get(),
+      inputBuffers->globalInputs,
       inputBuffers->singleInputGlobalBytes * batchSize,
       cudaMemcpyHostToDevice));
   if(numMetaFeatures > 0) {
@@ -1753,7 +1754,7 @@ void NeuralNet::getOutput(
       "getOutput",
       cudaMemcpyAsync(
         gpuHandle->getBuffer("InputMeta"),
-        inputBuffers->metaInputs.get(),
+        inputBuffers->metaInputs,
         inputBuffers->singleInputMetaBytes * batchSize,
         cudaMemcpyHostToDevice));
   }
@@ -1778,40 +1779,40 @@ void NeuralNet::getOutput(
 #endif
   CUDA_ERR(
     "getOutput",
-    cudaMemcpy(
-      inputBuffers->policyPassResults.get(),
+    cudaMemcpyAsync(
+      inputBuffers->policyPassResults,
       gpuHandle->getBuffer("OutputPolicyPass"),
       inputBuffers->singlePolicyPassResultBytes * batchSize,
       cudaMemcpyDeviceToHost));
   CUDA_ERR(
     "getOutput",
-    cudaMemcpy(
-      inputBuffers->policyResults.get(),
+    cudaMemcpyAsync(
+      inputBuffers->policyResults,
       gpuHandle->getBuffer("OutputPolicy"),
       inputBuffers->singlePolicyResultBytes * batchSize,
       cudaMemcpyDeviceToHost));
   CUDA_ERR(
     "getOutput",
-    cudaMemcpy(
-      inputBuffers->valueResults.get(),
+    cudaMemcpyAsync(
+      inputBuffers->valueResults,
       gpuHandle->getBuffer("OutputValue"),
       inputBuffers->singleValueResultBytes * batchSize,
       cudaMemcpyDeviceToHost));
   CUDA_ERR(
     "getOutput",
-    cudaMemcpy(
-      inputBuffers->scoreValueResults.get(),
+    cudaMemcpyAsync(
+      inputBuffers->scoreValueResults,
       gpuHandle->getBuffer("OutputScoreValue"),
       inputBuffers->singleScoreValueResultBytes * batchSize,
       cudaMemcpyDeviceToHost));
   CUDA_ERR(
     "getOutput",
-    cudaMemcpy(
-      inputBuffers->ownershipResults.get(),
+    cudaMemcpyAsync(
+      inputBuffers->ownershipResults,
       gpuHandle->getBuffer("OutputOwnership"),
       inputBuffers->singleOwnershipResultBytes * batchSize,
       cudaMemcpyDeviceToHost));
-
+  cudaStreamSynchronize(cudaStreamPerThread);    
   gpuHandle->printDebugOutput(batchSize);
   gpuHandle->trtErrorRecorder.clear();
 
