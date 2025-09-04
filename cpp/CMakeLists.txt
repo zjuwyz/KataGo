@@ -311,6 +311,7 @@ add_executable(katago
   command/analysis.cpp
   command/benchmark.cpp
   command/contribute.cpp
+  command/demoplay.cpp
   command/evalsgf.cpp
   command/gatekeeper.cpp
   command/genbook.cpp
@@ -321,6 +322,7 @@ add_executable(katago
   command/runtests.cpp
   command/sandbox.cpp
   command/selfplay.cpp
+  command/startposes.cpp
   command/tune.cpp
   command/writetrainingdata.cpp
   main.cpp
