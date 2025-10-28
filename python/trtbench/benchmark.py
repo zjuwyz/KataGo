@@ -62,18 +62,20 @@ class TRTBenchmarkSuite:
         duration: float = 5.0,
         warmup: int = 500,
         time_per_move: float = 3.0,
-        num_gpus: int = 1
+        num_gpus: int = 1,
+        test_dynamic_batch: bool = False
     ) -> str:
         """
         Run complete benchmark suite.
 
         Args:
-            batch_sizes: List of batch sizes to test
+            batch_sizes: List of plan batch sizes to test
             stream_counts: List of stream counts to test
             duration: Benchmark duration per test (seconds)
             warmup: Warmup time (milliseconds)
             time_per_move: Time per move for ELO calculation (seconds)
             num_gpus: Number of GPUs for ELO calculation
+            test_dynamic_batch: If True, test all infer batches from 1 to plan_batch for each plan
 
         Returns:
             Path to results directory
@@ -88,10 +90,15 @@ class TRTBenchmarkSuite:
         logs_dir.mkdir(exist_ok=True)
 
         print("=" * 80)
-        print("TensorRT Benchmark Suite for KataGo")
+        if test_dynamic_batch:
+            print("TensorRT Dynamic Batch Benchmark")
+        else:
+            print("TensorRT Benchmark Suite for KataGo")
         print("=" * 80)
         print(f"GPU: {self.gpu_name}")
-        print(f"Batch sizes: {batch_sizes}")
+        print(f"Plan batch sizes: {batch_sizes}")
+        if test_dynamic_batch:
+            print(f"Testing all inference batches from 1 to plan_batch for each plan")
         print(f"Stream counts: {stream_counts}")
         print(f"Duration: {duration}s per test (warmup: {warmup}ms)")
         print(f"Results directory: {results_dir}")
@@ -99,20 +106,25 @@ class TRTBenchmarkSuite:
         print()
 
         all_results = []
-        total_tests = len(batch_sizes) * len(stream_counts)
+
+        # Calculate total tests
+        if test_dynamic_batch:
+            total_tests = sum(plan_batch * len(stream_counts) for plan_batch in batch_sizes)
+        else:
+            total_tests = len(batch_sizes) * len(stream_counts)
         current_test = 0
 
-        for batch_size in batch_sizes:
+        for plan_batch in batch_sizes:
             print(f"\n{'='*80}")
-            print(f"Batch Size: {batch_size}")
+            print(f"Plan Batch Size: {plan_batch}")
             print(f"{'='*80}")
 
             # Step 1: Check if plan file exists, generate if needed
-            print(f"\n[1/3] Checking TensorRT plan for batch size {batch_size}...")
+            print(f"\n[1/3] Checking TensorRT plan for batch size {plan_batch}...")
 
             # Try to find existing plan file by pattern matching
             import glob
-            cache_pattern = str(Path(self.cache_dir) / f"trt-*_batch{batch_size}_fp16")
+            cache_pattern = str(Path(self.cache_dir) / f"trt-*_batch{plan_batch}_fp16")
             existing_plans = glob.glob(cache_pattern)
 
             if existing_plans:
@@ -123,9 +135,9 @@ class TRTBenchmarkSuite:
                 print(f"    Size: {file_size:.1f} MB")
             else:
                 print(f"  Plan file not found, generating...")
-                success = self.plan_gen.generate_plan(batch_size)
+                success = self.plan_gen.generate_plan(plan_batch)
                 if not success:
-                    print(f"  ✗ Failed to generate plan for batch size {batch_size}")
+                    print(f"  ✗ Failed to generate plan for batch size {plan_batch}")
                     continue
 
                 # Find the newly created plan file
@@ -139,61 +151,73 @@ class TRTBenchmarkSuite:
                 print(f"  ✓ Plan generated: {Path(plan_path).name}")
                 print(f"    Size: {file_size:.1f} MB")
 
-            # Step 2: Benchmark with different stream counts
-            print(f"\n[2/3] Benchmarking batch size {batch_size} with different stream counts...")
+            # Step 2: Benchmark with different stream counts and infer batches
+            infer_batches = range(1, plan_batch + 1) if test_dynamic_batch else [plan_batch]
+            print(f"\n[2/3] Benchmarking plan_batch={plan_batch} with infer batches {list(infer_batches)[:3]}{'...' if len(list(infer_batches)) > 3 else ''}...")
             batch_results = []
 
-            for num_streams in stream_counts:
-                current_test += 1
-                print(f"\n  Test {current_test}/{total_tests}: batch={batch_size}, streams={num_streams}")
+            for infer_batch in infer_batches:
+                for num_streams in stream_counts:
+                    current_test += 1
+                    if test_dynamic_batch:
+                        print(f"\n  Test {current_test}/{total_tests}: plan_batch={plan_batch}, infer_batch={infer_batch}, streams={num_streams}")
+                    else:
+                        print(f"\n  Test {current_test}/{total_tests}: batch={plan_batch}, streams={num_streams}")
 
-                # Create log file path in logs subdirectory
-                log_file = logs_dir / f"trtexec_batch{batch_size}_stream{num_streams}.log"
+                    # Create log file path in logs subdirectory
+                    if test_dynamic_batch:
+                        log_file = logs_dir / f"trtexec_plan{plan_batch}_infer{infer_batch}_stream{num_streams}.log"
+                    else:
+                        log_file = logs_dir / f"trtexec_batch{plan_batch}_stream{num_streams}.log"
 
-                result = self.trt_runner.benchmark(
-                    engine_path=plan_path,
-                    batch_size=batch_size,
-                    num_streams=num_streams,
-                    duration=duration,
-                    warmup=warmup,
-                    log_file=str(log_file)
-                )
+                    result = self.trt_runner.benchmark(
+                        engine_path=plan_path,
+                        batch_size=infer_batch,
+                        num_streams=num_streams,
+                        duration=duration,
+                        warmup=warmup,
+                        log_file=str(log_file)
+                    )
 
-                if result:
-                    # Calculate throughput metric (nnEval/s)
-                    throughput_nneval = batch_size * result['throughput_qps']
+                    if result:
+                        # Calculate throughput metric (nnEval/s)
+                        throughput_nneval = infer_batch * result['throughput_qps']
 
-                    # Store relative path to log file
-                    log_relative = f"logs/{log_file.name}"
+                        # Store relative path to log file
+                        log_relative = f"logs/{log_file.name}"
 
-                    result_entry = {
-                        'batch_size': batch_size,
-                        'num_streams': num_streams,
-                        'latency_ms': result['latency_ms'],
-                        'throughput_qps': result['throughput_qps'],
-                        'throughput_nneval': throughput_nneval,
-                        'trtexec_command': result['trtexec_command'],
-                        'trtexec_log': log_relative
-                    }
-                    batch_results.append(result_entry)
-                    all_results.append(result_entry)
+                        result_entry = {
+                            'batch_size': plan_batch if not test_dynamic_batch else infer_batch,
+                            'num_streams': num_streams,
+                            'latency_ms': result['latency_ms'],
+                            'throughput_qps': result['throughput_qps'],
+                            'throughput_nneval': throughput_nneval,
+                            'trtexec_command': result['trtexec_command'],
+                            'trtexec_log': log_relative
+                        }
+                        if test_dynamic_batch:
+                            result_entry['plan_batch'] = plan_batch
+                            result_entry['infer_batch'] = infer_batch
+                        batch_results.append(result_entry)
+                        all_results.append(result_entry)
 
-                    print(f"    Latency: {result['latency_ms']:.3f}ms, "
-                          f"Throughput: {result['throughput_qps']:.1f}qps, "
-                          f"nnEval/s: {throughput_nneval:.0f}")
-                    print(f"    Log: {log_relative}")
-                else:
-                    print(f"    ✗ Benchmark failed")
+                        print(f"    Latency: {result['latency_ms']:.3f}ms, "
+                              f"Throughput: {result['throughput_qps']:.1f}qps, "
+                              f"nnEval/s: {throughput_nneval:.0f}")
+                        print(f"    Log: {log_relative}")
+                    else:
+                        print(f"    ✗ Benchmark failed")
 
             # Step 3: Generate results for current batch size
             if batch_results:
-                print(f"\n[3/3] Generating results for batch size {batch_size}...")
+                print(f"\n[3/3] Generating results for plan batch size {plan_batch}...")
                 self._generate_results(
                     all_results,
                     results_dir,
-                    batch_size,
+                    plan_batch,
                     time_per_move,
-                    num_gpus
+                    num_gpus,
+                    test_dynamic_batch
                 )
 
         print("\n" + "=" * 80)
@@ -208,7 +232,8 @@ class TRTBenchmarkSuite:
         results_dir: Path,
         current_batch: int,
         time_per_move: float,
-        num_gpus: int
+        num_gpus: int,
+        is_dynamic: bool = False
     ) -> None:
         """
         Generate benchmark results, visualization, and optimal settings.
@@ -219,6 +244,7 @@ class TRTBenchmarkSuite:
             current_batch: Current batch size being processed
             time_per_move: Time per move for ELO calculation
             num_gpus: Number of GPUs
+            is_dynamic: Whether this is a dynamic batch benchmark
         """
         # Prepare metadata
         test_info = {
@@ -227,6 +253,10 @@ class TRTBenchmarkSuite:
             "batch_sizes_tested": sorted(list(set(r['batch_size'] for r in all_results))),
             "stream_counts_tested": sorted(list(set(r['num_streams'] for r in all_results))),
         }
+        if is_dynamic:
+            test_info["test_type"] = "dynamic_batch"
+            if all_results and 'plan_batch' in all_results[0]:
+                test_info["plan_batch"] = all_results[0]['plan_batch']
 
         # Create JSON data
         benchmark_data = {
@@ -334,6 +364,9 @@ if __name__ == "__main__":
     parser.add_argument('--num-gpus', type=int, default=1,
                        help='Number of GPUs for ELO calculation (default: 1)')
 
+    parser.add_argument('--test-dynamic-batch', action='store_true',
+                       help='Test all inference batch sizes from 1 to plan_batch for each plan')
+
     args = parser.parse_args()
 
     # Parse batch sizes
@@ -373,5 +406,6 @@ if __name__ == "__main__":
         duration=args.duration,
         warmup=args.warmup,
         time_per_move=args.time_per_move,
-        num_gpus=args.num_gpus
+        num_gpus=args.num_gpus,
+        test_dynamic_batch=args.test_dynamic_batch
     )
