@@ -107,13 +107,37 @@ class TRTBenchmarkSuite:
             print(f"Batch Size: {batch_size}")
             print(f"{'='*80}")
 
-            # Step 1: Generate plan file
-            print(f"\n[1/3] Generating TensorRT plan for batch size {batch_size}...")
-            plan_path = self.plan_gen.generate_plan(batch_size)
+            # Step 1: Check if plan file exists, generate if needed
+            print(f"\n[1/3] Checking TensorRT plan for batch size {batch_size}...")
 
-            if not plan_path:
-                print(f"  ✗ Failed to generate plan for batch size {batch_size}")
-                continue
+            # Try to find existing plan file by pattern matching
+            import glob
+            cache_pattern = str(Path(self.cache_dir) / f"trt-*_batch{batch_size}_fp16")
+            existing_plans = glob.glob(cache_pattern)
+
+            if existing_plans:
+                # Use the first matching plan file
+                plan_path = existing_plans[0]
+                file_size = os.path.getsize(plan_path) / (1024 * 1024)
+                print(f"  ✓ Plan file found: {Path(plan_path).name}")
+                print(f"    Size: {file_size:.1f} MB")
+            else:
+                print(f"  Plan file not found, generating...")
+                success = self.plan_gen.generate_plan(batch_size)
+                if not success:
+                    print(f"  ✗ Failed to generate plan for batch size {batch_size}")
+                    continue
+
+                # Find the newly created plan file
+                existing_plans = glob.glob(cache_pattern)
+                if not existing_plans:
+                    print(f"  ✗ Plan file not found after generation")
+                    continue
+
+                plan_path = existing_plans[0]
+                file_size = os.path.getsize(plan_path) / (1024 * 1024)
+                print(f"  ✓ Plan generated: {Path(plan_path).name}")
+                print(f"    Size: {file_size:.1f} MB")
 
             # Step 2: Benchmark with different stream counts
             print(f"\n[2/3] Benchmarking batch size {batch_size} with different stream counts...")

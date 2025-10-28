@@ -59,7 +59,7 @@ class PlanGenerator:
         self,
         batch_size: int,
         timeout: int = 120
-    ) -> Optional[str]:
+    ) -> bool:
         """
         Generate a TensorRT plan cache file for the specified batch size.
 
@@ -67,14 +67,13 @@ class PlanGenerator:
         1. Starting KataGo in GTP mode with the specified batch size
         2. Waiting for it to load the model and generate the plan
         3. Sending 'quit' command to cleanly shut down
-        4. Returning the path to the generated plan file
 
         Args:
             batch_size: Batch size to generate plan for
             timeout: Maximum time to wait for plan generation (seconds)
 
         Returns:
-            Path to generated plan file, or None if generation failed
+            True if plan generation succeeded, False otherwise
         """
         print(f"Generating TensorRT plan for batch size {batch_size}...")
 
@@ -160,60 +159,22 @@ class PlanGenerator:
                 process.wait(timeout=10)
                 print(f"  KataGo exited cleanly (return code: {process.returncode})")
 
-                if not model_name:
-                    print("  Warning: Could not extract model name from output")
-                    # Try to infer from latest output
-                    for line in output_lines:
-                        if "loaded model" in line.lower():
-                            print(f"  Found: {line}")
-
-                # The plan file should now exist in ~/.katago/trtcache/
-                # We can verify using the get_plan_filename module
-                try:
-                    from get_plan_filename import PlanFilenameGenerator
-
-                    # Try to detect GPU name
-                    gpu_name = self._detect_gpu_name(output_lines)
-                    if not gpu_name:
-                        print("  Warning: Could not detect GPU name, using default")
-                        gpu_name = "NVIDIA GeForce RTX 5080"  # Fallback
-
-                    if not model_name:
-                        # Try to extract from model file name
-                        model_name = self.model_file.stem.replace('.bin', '')
-
-                    gen = PlanFilenameGenerator(
-                        os.path.join(str(self.tensorrt_lib_path), "libnvinfer.so.10"),
-                        str(self.cache_dir)
-                    )
-                    plan_path = gen.generate_plan_filename(
-                        model_name=model_name,
-                        gpu_name=gpu_name,
-                        batch_size=batch_size
-                    )
-
-                    if os.path.exists(plan_path):
-                        file_size = os.path.getsize(plan_path) / (1024 * 1024)
-                        print(f"  ✓ Plan file generated successfully: {Path(plan_path).name}")
-                        print(f"    Size: {file_size:.1f} MB")
-                        return plan_path
-                    else:
-                        print(f"  ✗ Plan file not found at expected location: {plan_path}")
-                        return None
-
-                except Exception as e:
-                    print(f"  Warning: Could not verify plan file: {e}")
-                    return None
+                if process.returncode == 0:
+                    print(f"  ✓ Plan generation completed successfully")
+                    return True
+                else:
+                    print(f"  ✗ KataGo exited with error code: {process.returncode}")
+                    return False
 
             except subprocess.TimeoutExpired:
                 print(f"  Error: KataGo did not exit within timeout")
-                return None
+                return False
 
         except Exception as e:
             print(f"  Error generating plan: {e}")
             import traceback
             traceback.print_exc()
-            return None
+            return False
 
     def _detect_gpu_name(self, output_lines: list) -> Optional[str]:
         """Try to detect GPU name from KataGo output."""
